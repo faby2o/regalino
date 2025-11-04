@@ -1,0 +1,168 @@
+import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+
+const destinations = [
+  { id: 'amsterdam', title: 'Amsterdam', subtitle: 'Canali, luci e passeggiate mano nella mano', description: 'Città romantica e raccolta: godetevi una crociera serale sui canali, un picnic al Vondelpark e i piccoli bistrot nascosti tra le vie storiche. Perfetta per lunghe passeggiate e momenti intimi.', highlights: ['Crociera al tramonto', 'Museo Van Gogh', 'Bistrot romantico'], image: 'https://images.unsplash.com/photo-1494783367193-149034c05e8f?auto=format&fit=crop&w=1600&q=80' },
+  { id: 'madrid', title: 'Madrid', subtitle: 'Sapori intensi e tramonti dorati', description: 'Energia elegante: tapas nei locali storici, una serata a Plaza Mayor e un rooftop per guardare il tramonto. Madrid unisce vivacità e raffinatezza in ogni angolo.', highlights: ['Tapas tour', 'Rooftop al tramonto', 'Museo del Prado'], image: 'https://images.unsplash.com/photo-1508057198894-247b23fe5ade?auto=format&fit=crop&w=1600&q=80' },
+  { id: 'canarie', title: 'Isole Canarie', subtitle: 'Spiagge dorate e cieli stellati', description: 'Un rifugio di luce: spiagge, passeggiate vulcaniche e tramonti infuocati. Ideale se desiderate giorni di relax tra mare e paesaggi naturali spettacolari.', highlights: ['Spiagge e relax', 'Escursione vulcanica', 'Cena fronte mare'], image: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1600&q=80' }
+];
+
+const floralBg = 'https://images.unsplash.com/photo-1526318472351-c75fcf0700f9?auto=format&fit=crop&w=1600&q=80';
+
+async function toDataURL(url) {
+  const res = await fetch(url, { mode: 'cors' });
+  const blob = await res.blob();
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function loadJsPdfCdn() {
+  if (window.jspdf && window.jspdf.jsPDF) return window.jspdf.jsPDF;
+  return new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+    script.onload = () => {
+      if (window.jspdf && window.jspdf.jsPDF) resolve(window.jspdf.jsPDF);
+      else reject(new Error('jsPDF non disponibile dopo il caricamento.'));
+    };
+    script.onerror = () => reject(new Error('Impossibile caricare jsPDF dal CDN.'));
+    document.head.appendChild(script);
+  });
+}
+
+export default function App() {
+  const [started, setStarted] = useState(false);
+  const [active, setActive] = useState(destinations[0].id);
+  const [confirmed, setConfirmed] = useState(null);
+  const [generating, setGenerating] = useState(false);
+
+  const activeData = destinations.find(d => d.id === active);
+  const confirmChoice = () => setConfirmed(activeData);
+
+  const generatePDF = async (data) => {
+    try {
+      setGenerating(true);
+      const jsPDFCtor = await loadJsPdfCdn();
+      if (!jsPDFCtor) throw new Error('jsPDF non trovato');
+
+      const doc = new jsPDFCtor.jsPDF({ unit: 'mm', format: 'a4', compress: true });
+
+      const coverBgDataUrl = await toDataURL(floralBg);
+      const destDataUrl = await toDataURL(data.image);
+
+      doc.addImage(coverBgDataUrl, 'JPEG', 0, 0, 210, 297);
+      doc.setFillColor(255, 244, 247);
+      doc.rect(10, 30, 190, 90, 'F');
+      doc.setTextColor(100, 20, 60);
+      doc.setFontSize(28);
+      doc.setFont('times', 'bold');
+      doc.text('Il tuo regalo di laurea', 105, 60, { align: 'center' });
+      doc.setFontSize(14);
+      doc.setFont('times', 'italic');
+      doc.text('Un viaggio pensato con il cuore, per celebrare un traguardo speciale.', 105, 76, { align: 'center', maxWidth: 170 });
+      doc.setFillColor(212, 175, 55);
+      doc.circle(105, 88, 2.8, 'F');
+
+      doc.addPage();
+      doc.setFillColor(255, 255, 255);
+      doc.rect(0, 0, 210, 297, 'F');
+      doc.addImage(destDataUrl, 'JPEG', 10, 15, 190, 100);
+      doc.setTextColor(60, 20, 40);
+      doc.setFontSize(22);
+      doc.setFont('times', 'bold');
+      doc.text(data.title, 15, 127);
+      doc.setFontSize(12);
+      doc.setFont('times', 'italic');
+      doc.setTextColor(120, 80, 90);
+      doc.text(data.subtitle, 15, 135);
+      doc.setFontSize(11);
+      doc.setFont('times', 'normal');
+      doc.setTextColor(50, 50, 50);
+      const split = doc.splitTextToSize(data.description, 180);
+      doc.text(split, 15, 145);
+      doc.setFontSize(13);
+      doc.setFont('times', 'italic');
+      doc.setTextColor(150, 40, 80);
+      doc.text('Prepara la valigia, ci aspetta un’avventura indimenticabile ❤️', 105, 270, { align: 'center' });
+      doc.save('Regalo-di-Laurea.pdf');
+    } catch (e) {
+      console.error('Errore generazione PDF:', e);
+      alert('Si è verificato un errore durante la generazione del PDF. Controlla la console per dettagli.');
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  return (
+    <div className="relative min-h-screen overflow-hidden bg-black text-white font-sans">
+      <audio autoPlay loop>
+        <source src="https://cdn.pixabay.com/download/audio/2022/03/15/audio_5b6d0a94a0.mp3?filename=romantic-piano-ambient-11069.mp3" type="audio/mpeg" />
+      </audio>
+
+      <AnimatePresence>
+        {!started && (
+          <motion.div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-b from-black via-gray-900 to-gray-800 text-center px-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 1.2 }}>
+            <motion.h1 className="text-5xl md:text-6xl font-semibold mb-6" initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.5 }}>Il tuo regalo di laurea</motion.h1>
+            <motion.p className="max-w-2xl text-gray-300 text-lg mb-8" initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 1 }}>
+              Dopo tanta strada percorsa, è tempo di una nuova avventura. Prepara la valigia, ci aspetta qualcosa di magico.
+            </motion.p>
+            <motion.button onClick={() => setStarted(true)} className="bg-pink-600 text-white px-6 py-3 rounded-full text-lg shadow-lg hover:scale-105 transition-transform" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.5 }}>
+              Inizia il viaggio ✨
+            </motion.button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {started && (
+        <motion.div className="relative min-h-screen flex flex-col" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 1 }}>
+          <motion.div key={activeData.id} className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${activeData.image})` }} initial={{ opacity: 0, scale: 1.05 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} transition={{ duration: 1.2 }} />
+          <div className="absolute inset-0 bg-black/60" />
+
+          <header className="relative z-10 text-center pt-10">
+            <h1 className="text-4xl font-bold mb-2">{activeData.title}</h1>
+            <p className="text-gray-300">{activeData.subtitle}</p>
+          </header>
+
+          <div className="relative z-10 flex flex-col items-center justify-center text-center flex-1 px-6">
+            <motion.p className="max-w-2xl text-gray-200 text-lg" initial={{ y: 10, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 1 }}>{activeData.description}</motion.p>
+            <ul className="mt-8 grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm text-gray-100">
+              {activeData.highlights.map(h => <li key={h} className="bg-white/10 backdrop-blur-md px-3 py-2 rounded-md">{h}</li>)}
+            </ul>
+
+            <div className="mt-10 flex flex-wrap justify-center gap-4">
+              {destinations.map(dest => (
+                <button key={dest.id} onClick={() => setActive(dest.id)} className={`px-4 py-2 rounded-full transition-all ${active === dest.id ? 'bg-pink-600 text-white shadow-lg' : 'bg-white/10 hover:bg-white/20'}`}>{dest.title}</button>
+              ))}
+            </div>
+
+            <motion.button onClick={confirmChoice} className="mt-12 bg-pink-600 px-6 py-3 rounded-full text-lg shadow-lg hover:scale-105 transition-transform" whileTap={{ scale: 0.95 }}>Conferma scelta ❤️</motion.button>
+          </div>
+        </motion.div>
+      )}
+
+      <AnimatePresence>
+        {confirmed && (
+          <motion.div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.6 }}>
+            <motion.div className="relative bg-white text-gray-800 rounded-2xl max-w-lg w-full p-6 text-center" initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} transition={{ duration: 0.6 }}>
+              <motion.div animate={{ y: [-10, 10, -10] }} transition={{ duration: 2, repeat: Infinity }} className="text-5xl mb-4">🎓✈️</motion.div>
+              <h2 className="text-3xl font-semibold">Scelta confermata!</h2>
+              <p className="mt-2 text-gray-600">Hai scelto di partire per...</p>
+              <h3 className="mt-4 text-2xl font-bold text-pink-600">{confirmed.title}</h3>
+              <img src={confirmed.image} alt={confirmed.title} className="mt-4 w-full h-48 object-cover rounded-lg" />
+              <p className="mt-3 text-gray-700">{confirmed.description}</p>
+
+              <div className="mt-6 flex gap-3 justify-center">
+                <button onClick={() => setConfirmed(null)} className="px-6 py-2 border rounded-full text-sm hover:bg-gray-50">Chiudi</button>
+                <button onClick={() => generatePDF(confirmed)} disabled={generating} className={`px-6 py-2 rounded-full text-sm text-white ${generating ? 'bg-gray-400' : 'bg-pink-600 hover:scale-105'} transition-transform`}>{generating ? 'Generazione in corso...' : 'Scarica il tuo regalo in PDF 🎁'}</button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
